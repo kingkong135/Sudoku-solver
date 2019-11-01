@@ -1,0 +1,206 @@
+import cv2
+import numpy as np
+from tool import crop_from_corners, resize_to_square
+
+img = cv2.imread('../images/3.png')
+# img = cv2.imread('../images/sudoku.png')
+# img = cv2.imread('../images/original.jpg')
+
+
+def find_sudoku(img, draw_contours=False, test=False):
+    '''Finds the biggest object in the image and returns its 4 corners (to crop it)'''
+    # Preprocessing
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    edges = cv2.GaussianBlur(gray, (7, 7), 0)
+    kernel = np.ones((3, 3), np.uint8)
+    edges = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel)
+    edges = cv2.adaptiveThreshold(edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 19, 2)
+
+    # Get contours:
+    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Extracting the image of what we think might be a sudoku:
+    topbottom_edge = (0, img.shape[0] - 1)
+    leftright_edge = (0, img.shape[1] - 1)
+
+    # NOTE in my webcam contours[0] is always the whole image, so i just ignore it
+    if len(contours) > 1:
+        conts = sorted(contours, key=cv2.contourArea, reverse=True)
+
+        # Loops through the found objects
+        # for something with at least 4 corners and kinda big (>10_000 pixels)
+        for cnt in conts:
+
+            epsilon = 0.025 * cv2.arcLength(cnt, True)
+            cnt = cv2.approxPolyDP(cnt, epsilon, True)
+
+            if len(cnt) > 3:
+                # Gets the 4 corners of the object (assume it's a square)
+                top_left     = min(cnt, key=lambda x: x[0, 0] + x[0, 1])
+                bottom_right = max(cnt, key=lambda x: x[0, 0] + x[0, 1])
+                top_right    = max(cnt, key=lambda x: x[0, 0] - x[0, 1])
+                bottom_left  = min(cnt, key=lambda x: x[0, 0] - x[0, 1])
+                corners = (top_left, top_right, bottom_left, bottom_right)
+
+                # Sometimes it finds 'objects' which are just parts of the screen
+                badobj = False
+                for corner in corners:
+                    if corner[0][0] in leftright_edge or corner[0][1] in topbottom_edge:
+                        badobj = True
+
+                if badobj is True:
+                    continue
+
+                # Test
+                if test:
+                    cv2.drawContours(img, [cnt], 0, (0, 255, 0), 2)
+                    cv2.circle(img, (top_left[0][0], top_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
+                    cv2.circle(img, (top_right[0][0], top_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
+                    cv2.circle(img, (bottom_left[0][0], bottom_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
+                    cv2.circle(img, (bottom_right[0][0], bottom_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
+
+            else:
+
+                return edges, None
+
+            # NOTE edit this for different webcams, I found at least size 10k is good
+            if cv2.contourArea(cnt) > 10000:
+                rect = cv2.minAreaRect(cnt)
+                box = cv2.boxPoints(rect)
+                box = np.int0(box)
+                if draw_contours is True:
+                    cv2.drawContours(edges, [box], 0, (0, 255, 0), 2)
+
+                # Returns the 4 corners of an object with 4+ corners and area of >10k
+                return edges, corners
+
+            else:
+                return edges, None
+    return edges, None
+
+
+def build_sudoku(img, test = False):
+    # Different preprocessings
+    # can dilate/open if numbers are small or blur if there's noise
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # gray = cv2.dilate(gray, np.ones((2, 2)))
+    # gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, np.ones((1,5),np.uint8))
+    # gray = cv2.GaussianBlur(gray,(5,5),0)
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 7, 7)
+
+    if test:
+        cv2.imshow('sudoku', edges)
+
+    h, w = img.shape[:2]
+
+    # # Sudoku object that will contain all the information
+    # sudoku = Sudoku.instance()
+    k = 0
+    sudoku_border = 4
+    border = 4
+    x = w/9
+    y = h/9
+    ans = []
+    for i in range(9):
+        for j in range(9):
+            top = int(round(y * i + border))
+            left = int(round(x * j + border))
+            right = int(round(x * (j + 1) - border))
+            bot = int(round(y * (i + 1) - border))
+            if i == 0:
+                top += sudoku_border
+            if i == 8:
+                bot -= sudoku_border
+            if j == 0:
+                left += sudoku_border
+            if j == 8:
+                right -= sudoku_border
+
+            point = [
+                [[left, top]],
+                [[right, top]],
+                [[left, bot]],
+                [[right, bot]]
+            ]
+
+            square, _ = crop_from_corners(edges, point)
+            # cv2.imshow('test ' + str((i+1)*(j+1)), square)
+            if test is True:
+                if i == 0 and j == 3:
+                    cv2.imshow('square', square)
+                if i == 1 and j == 0:
+                    cv2.imshow('ss', square)
+
+            fat_square = square.copy()
+            contours, _ = cv2.findContours(fat_square, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(fat_square, contours, -1, (255, 255, 255), 2)
+            # cv2.imshow('test' + str(k), fat_square)
+            # k = k + 1
+            # Get the contour of the number (biggest object in a case)
+            contours, _ = cv2.findContours(fat_square, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            physical_position = [top, right, bot, left]
+
+
+
+            if contours:
+                conts = sorted(contours, key=cv2.contourArea, reverse=True)
+                # Get the biggest object in the case (assume it's a number)
+                cnt = conts[0]
+
+                # minarea is an arbitrary size that the number must be to be considered valid
+                # NOTE change it if it detects noise/doesn't detect numbers (0.04)
+                minarea = x * y * 0.06
+                if cv2.contourArea(cnt) > minarea:
+                    # Crop out the number
+
+                    rect = cv2.minAreaRect(cnt)
+                    box = cv2.boxPoints(rect)
+                    box = np.int0(box)
+                    minx = max(min(box, key=lambda g: g[0])[0], 0)
+                    miny = max(min(box, key=lambda g: g[1])[1], 0)
+                    maxx = min(max(box, key=lambda g: g[0])[0], int(x))
+                    maxy = min(max(box, key=lambda g: g[1])[1], int(y))
+
+                    number_image = square[miny:maxy, minx:maxx]
+
+                    if number_image is None or number_image.shape[0] < 4 or number_image.shape[1] < 4:
+                        # If there's not a number in there
+                        # sudoku.update_case(None, (i, j), physical_position)
+                        ans.append(0)
+                    else:
+                        # If we get a valid number image:
+                        # Resize it to 28x28 for neural network purposes
+                        final = resize_to_square(number_image)
+                        # Send the data to the Sudoku object
+                        # sudoku.update_case(final, (i, j), physical_position)
+                        ans.append(1)
+                else:
+                    # sudoku.update_case(None, (i, j), physical_position)
+                    ans.append(0)
+            else:
+                # sudoku.update_case(None, (i, j), physical_position)
+                ans.append(0)
+    return ans
+edges, corners = find_sudoku(img, False, False)
+if corners is not None:
+    # We crop out the sudoku and get the info needed to paste it back (matrix)
+    img_crop, transformation = crop_from_corners(img, corners)
+    cv2.imshow('crop', img_crop)
+    transfor_matrix = transformation['matrix']
+    original_shape = transformation['original_shape']
+
+    # inverse the matrix for we can thuc hien chuyen doi sau
+    transfor_matrix = np.linalg.pinv(transfor_matrix)
+    ans = build_sudoku(img_crop, test=False)
+    print(ans)
+    print(len(ans))
+    count1 = 0
+    for i in ans:
+        if i == 1:
+            count1 += 1
+    print(count1)
+
+# cv2.imshow('img', img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
