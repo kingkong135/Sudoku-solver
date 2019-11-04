@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
-from tool import crop_from_corners, resize_to_square
+from tool import crop_from_corners, resize_to_square, perspective_transform, blend_non_transparent
+from Sudoku import Sudoku
 
-img = cv2.imread('../images/3.png')
-# img = cv2.imread('../images/sudoku.png')
-# img = cv2.imread('../images/original.jpg')
+img = cv2.imread('../images/5.png')
+
 
 
 def find_sudoku(img, draw_contours=False, test=False):
@@ -79,7 +79,7 @@ def find_sudoku(img, draw_contours=False, test=False):
     return edges, None
 
 
-def build_sudoku(img, test = False):
+def build_sudoku(img, test=False):
     # Different preprocessings
     # can dilate/open if numbers are small or blur if there's noise
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -94,7 +94,7 @@ def build_sudoku(img, test = False):
     h, w = img.shape[:2]
 
     # # Sudoku object that will contain all the information
-    # sudoku = Sudoku.instance()
+    sudoku = Sudoku.instance()
     k = 0
     sudoku_border = 4
     border = 4
@@ -134,8 +134,6 @@ def build_sudoku(img, test = False):
             fat_square = square.copy()
             contours, _ = cv2.findContours(fat_square, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(fat_square, contours, -1, (255, 255, 255), 2)
-            # cv2.imshow('test' + str(k), fat_square)
-            # k = k + 1
             # Get the contour of the number (biggest object in a case)
             contours, _ = cv2.findContours(fat_square, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -166,22 +164,20 @@ def build_sudoku(img, test = False):
 
                     if number_image is None or number_image.shape[0] < 4 or number_image.shape[1] < 4:
                         # If there's not a number in there
-                        # sudoku.update_case(None, (i, j), physical_position)
-                        ans.append(0)
+                        sudoku.update_case(None, (i, j), physical_position)
                     else:
                         # If we get a valid number image:
                         # Resize it to 28x28 for neural network purposes
                         final = resize_to_square(number_image)
                         # Send the data to the Sudoku object
-                        # sudoku.update_case(final, (i, j), physical_position)
-                        ans.append(1)
+                        sudoku.update_case(final, (i, j), physical_position)
                 else:
-                    # sudoku.update_case(None, (i, j), physical_position)
-                    ans.append(0)
+                    sudoku.update_case(None, (i, j), physical_position)
             else:
-                # sudoku.update_case(None, (i, j), physical_position)
-                ans.append(0)
-    return ans
+                sudoku.update_case(None, (i, j), physical_position)
+    return sudoku
+
+
 edges, corners = find_sudoku(img, False, False)
 if corners is not None:
     # We crop out the sudoku and get the info needed to paste it back (matrix)
@@ -192,14 +188,13 @@ if corners is not None:
 
     # inverse the matrix for we can thuc hien chuyen doi sau
     transfor_matrix = np.linalg.pinv(transfor_matrix)
-    ans = build_sudoku(img_crop, test=False)
-    print(ans)
-    print(len(ans))
-    count1 = 0
-    for i in ans:
-        if i == 1:
-            count1 += 1
-    print(count1)
+    sudoku = build_sudoku(img_crop, test=False)
+    sudoku.guess_sudoku(confidence_threshold=0)
+    sudoku.solve(img_crop, approximate=0.95)
+    # cv2.imshow('img_crop', img_crop)
+    img_sudoku_final = perspective_transform(img_crop, transfor_matrix, original_shape)
+    img_final = blend_non_transparent(img, img_sudoku_final)
+    cv2.imshow('crop2', img_final)
 
 # cv2.imshow('img', img)
 cv2.waitKey(0)

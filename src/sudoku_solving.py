@@ -91,7 +91,7 @@ def display(values):
         print(''.join(values[r + c].center(width) + ('|' if c in '36' else '')
                       for c in cols))
         if r in 'CF': print(line)
-        print()
+
 
 
 def solve(grid): return search(parse_grid(grid))
@@ -124,5 +124,5 @@ def result(grids):
         display(values)
 
 
-grid2  = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
-result(grid2)
+# grid2  = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
+# result(grid2)
