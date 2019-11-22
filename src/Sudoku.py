@@ -18,55 +18,53 @@ class Sudoku:
         self.puzzle = np.empty(size, dtype=np.object)
         for i in range(size[0]):
             for j in range(size[1]):
-                self.puzzle[i,j] = Case()
+                self.puzzle[i, j] = Block()
 
-    def update_case(self, image, case_position, physical_position):
-        self.puzzle[case_position].update(image, case_position, physical_position)
+    def update_block(self, img, block_pos, physical_pos):
+        self.puzzle[block_pos].update(img, block_pos, physical_pos)
 
     def guess_sudoku(self, confidence_threshold=0):
         for i in range(9):
             for j in range(9):
-                case = self.puzzle[i,j]
-                case.guess_number(confidence_threshold=confidence_threshold)
+                block = self.puzzle[i, j]
+                block.guess_number(confidence_threshold=confidence_threshold)
 
     def write_solution(self, sudoku_image, solution, ignore=None):
         if solution is not False:
-            cols   = '123456789'
-            rows   = 'ABCDEFGHI'
+            cols = '123456789'
+            rows = 'ABCDEFGHI'
             for i in range(9):
                 for j in range(9):
                     number = solution[rows[i] + cols[j]]
-                    case = self.puzzle[i,j]
+                    block = self.puzzle[i, j]
                     if ignore is None:
-                        if case.number == 0:
-                            case.write(sudoku_image, number)
+                        if block.number == 0:
+                            block.write(sudoku_image, number)
                     else:
                         if (i, j) not in ignore:
-                            case.write(sudoku_image, number)
+                            block.write(sudoku_image, number)
 
     # For testing
     def write_test(self, sudoku_image):
         for i in range(9):
             for j in range(9):
-                case = self.puzzle[i,j]
-                if case.number != 0:
-                    case.write(sudoku_image, str(case.number))
+                block = self.puzzle[i, j]
+                if block.number != 0:
+                    block.write(sudoku_image, str(block.number))
 
     def get_existing_numbers(self):
         existing_numbers = []
         for i in range(9):
             for j in range(9):
-                case = self.puzzle[i,j]
-                if case.number != 0:
-                    existing_numbers.append((i,j))
+                block = self.puzzle[i, j]
+                if block.number != 0:
+                    existing_numbers.append((i, j))
 
         return existing_numbers
 
     def as_string(self):
         'Turns the numbers of the sudoku into a string to be read by algorithm'
-        # 0:00:00.000064
         string = ''
-
         array = np.ravel(self.puzzle)
         for guy in array:
             string += str(guy.number)
@@ -86,10 +84,11 @@ class Sudoku:
         'If it finds a sudoku similar to one it has already done, uses its solution'
         string = self.as_string()
         if string in self.already_solved.keys():
-            return self.already_solved[string], self.already_solved_numbers[string]
 
+            return self.already_solved[string], self.already_solved_numbers[string]
         else:
             # We save the attempts that we already did but were unsuccesful
+            sudoku_solving.result(string)
             if string in self.already_solved_false:
                 solved = False
             else:
@@ -113,7 +112,8 @@ class Sudoku:
                             best = max(guesses, key=lambda x: (x[1], len(self.already_solved_numbers[x[0]])))[0]
                             return self.already_solved[best], self.already_solved_numbers[best]
                         else:
-                            sorty = sorted(guesses, key=lambda x: (len(self.already_solved_numbers[x[0]]), x[1]), reverse=True)
+                            sorty = sorted(guesses, key=lambda x: (len(self.already_solved_numbers[x[0]]), x[1]),
+                                           reverse=True)
                             for item in sorty:
                                 if item[1] > approximate:
                                     # Sort them by length and then get the one with biggest length that has addecuate ratio?
@@ -134,61 +134,41 @@ class Sudoku:
         return False, False
 
     def solve(self, img_cropped_sudoku, approximate=False):
-        '''
-        If we don't find a solution to the sudoku (usually because of bad read)
-        Approximate=False gets the most similar sudoku
-        Approximate=0-99 gets the solution that had the most numbers read
-                         and is at least "approximate"% similar
-
-        NOTE: Using approximate can cause problems if it in some frames,
-              because of movement, it reads the lines of the sudoku as ones.
-              Since those will count as having more numbers read,
-              it will prioritize them (if they have a valid solution)
-        '''
         solution, existing_numbers = self.solve_approximate(approximate)
         self.write_solution(img_cropped_sudoku, solution, ignore=existing_numbers)
 
 
-class Case:
+class Block:
     def __init__(self):
-        # case_position is, for example, (8,8) for the case at the bottom right
-        # physical_position is the pixel at the center of the case, so we know where to write
-        self.image = None
+        self.img = None
         self.number = 0
-        # NOTE: Edit capacity for bigger buffer?
-        # With a bigger self.maxtimer we need a smaller buffer
+
         self.prev_guesses = RingBuffer(capacity=5, dtype=(float, (10)))
 
         self.fontsize = 0
-        self.case_position = (0, 0)
-        self.physical_position = (0, 0)
+        self.block_pos = (0, 0)
+        self.physical_pos = (0, 0)
 
         self.n = 0
 
         # Guesses the number every self.maxtimer frames (10?), to not overuse resources
         self.maxtimer = 10
-        self.timer = self.maxtimer-1
+        self.timer = self.maxtimer - 1
 
-    def update(self, image, case_position, physical_position):
-        self.image = image
-        self.case_position = case_position
+    def update(self, img, block_pos, physical_pos):
+        self.img = img
+        self.block_pos = block_pos
 
-        top, right, bottom, left = physical_position
-        average_dimension = (bottom-top + right-left)/2
+        top, right, bot, left = physical_pos
+        average_dimension = (bot - top + right - left) / 2
 
         # NOTE edit this for better fontsize, positioning of the number
-        self.fontsize = average_dimension/40
-        self.n = average_dimension/4
+        self.fontsize = average_dimension / 40
+        self.n = average_dimension / 4
 
         # NOTE edit this for better positioning of the number
-        self.physical_position = (physical_position[3]+1+int(self.fontsize*self.n),
-                                  physical_position[2]-int(self.fontsize*self.n))
-
-
-    # For testing, simply saves the image of its number into a file
-    def print_image(self):
-        if self.image is not None:
-            cv2.imwrite(f'number-{self.case_position[0]}-{self.case_position[1]}.jpg', self.image)
+        self.physical_pos = (physical_pos[3] + 1 + int(self.fontsize * self.n),
+                             physical_pos[2] - int(self.fontsize * self.n))
 
     def guess_number(self, kind=2, confidence_threshold=0):
         '''
@@ -197,28 +177,26 @@ class Case:
         kind=2 consumes more memory and CPU but is more reliable (averages out a bunch of guesses)
         '''
         if kind == 1:
-            if self.image is None:
+            if self.img is None:
                 number = 0
             else:
                 guy = NeuralNetwork.instance()
-                prediction = guy.guess(self.image)
+                prediction = guy.guess(self.img)
                 number = np.argmax(prediction, axis=0)
 
             self.number = number
 
         if kind == 2:
-            # Saves a bunch of guesses (see Case.__init__ for the number)
-
             # Guesses every self.maxtimer frames
             self.timer += 1
             if self.timer >= self.maxtimer:
                 self.timer = 0
 
-                if self.image is None:
-                    self.prev_guesses.appendleft(np.array([1,0,0,0,0,0,0,0,0,0]))
+                if self.img is None:
+                    self.prev_guesses.appendleft(np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
                 else:
                     guy = NeuralNetwork.instance()
-                    prediction = guy.guess(self.image)
+                    prediction = guy.guess(self.img)
                     self.prev_guesses.appendleft(np.array(prediction))
 
             m = np.mean(self.prev_guesses, axis=0)
@@ -228,27 +206,7 @@ class Case:
 
         return self.number
 
-
-    # For testing, ignore
-    def testwrite(self, sudoku_image):
-        font = cv2.FONT_HERSHEY_DUPLEX
-        if self.image is not None:
-            cv2.putText(sudoku_image, str(self.case_position[0]), self.physical_position,
-                        font, self.fontsize, (0,0,0), 1, cv2.LINE_AA)
-
-
-    # For testing, ignore
-    def write_number(self, sudoku_image):
-        font = cv2.FONT_HERSHEY_DUPLEX
-        number = self.number
-        if number != 0:
-            cv2.putText(sudoku_image, str(number), self.physical_position,
-                        font, self.fontsize, (0,0,0), 1, cv2.LINE_AA)
-
-
     def write(self, sudoku_image, text):
-        'Writes the given number into the position of the case'
-        # NOTE change font, colour if needed
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(sudoku_image, text, tuple(self.physical_position),
-                    font, self.fontsize,(0, 0, 255), 1, cv2.LINE_AA)
+        cv2.putText(sudoku_image, text, tuple(self.physical_pos),
+                    font, self.fontsize, (0, 0, 255), 1, cv2.LINE_AA)

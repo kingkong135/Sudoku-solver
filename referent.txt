@@ -4,3 +4,24 @@ cv2.approxPolyDP: xac dinh duong vien (https://stackoverflow.com/questions/41879
 
 cv2.minAreaRect(): Tìm một hình chữ nhật xoay của khu vực tối thiểu kèm theo tập hợp điểm 2D đầu vào
 https://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=minarearect
+blend_non_transparent: https://stackoverflow.com/questions/36921496/how-to-join-png-with-alpha-transparency-in-a-frame-in-realtime
+resize to sqare: https://jdhao.github.io/2017/11/06/resize-image-to-square-with-padding/
+
+
+slove line 138 mean:
+
+        '''
+        If we don't find a solution to the sudoku (usually because of bad read)
+        Approximate=False gets the most similar sudoku
+        Approximate=0-99 gets the solution that had the most numbers read
+                         and is at least "approximate"% similar
+
+        NOTE: Using approximate can cause problems if it in some frames,
+              because of movement, it reads the lines of the sudoku as ones.
+              Since those will count as having more numbers read,
+              it will prioritize them (if they have a valid solution)
+        '''
+
+        # case_position is, for example, (8,8) for the case at the bottom right
+        # physical_position is the pixel at the center of the case, so we know where to write
+

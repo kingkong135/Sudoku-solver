@@ -26,7 +26,7 @@ def crop_from_corners(img, corners, make_square=True):
     #  the perspective transformation matrix (ma tran bien doi phoi canh)
     M = cv2.getPerspectiveTransform(src_pts, dst_pts)
 
-    # directly warp the rotated rectangle to get the straightened rectangle
+    # truc tiep xoay cac hinh chu nhat cheo ve hcn thang
     warped = cv2.warpPerspective(img, M, (w, h))
 
     # Making it square for the numbers are more readable
@@ -42,27 +42,25 @@ def crop_from_corners(img, corners, make_square=True):
     }
     return warped, transfor_data
 
-
-def perspective_transform(img, transformation_matrix, original_shape=None):
+# Bien doi quan diem
+def perspective_transform(h, w, img, transformation_matrix, original_shape=None):
     warped = img
-
     if original_shape is not None:
         if original_shape[0] > 0 and original_shape[1] > 0:
             warped = cv2.resize(warped, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_CUBIC)
 
-    white_image = np.zeros((1088, 558, 3), np.uint8)
+    white_image = np.zeros((h, w, 3), np.uint8)
 
     white_image[:, :, :] = 255
 
     # warped = cv2.warpPerspective(warped, transformation_matrix, (640, 480), borderMode=cv2.BORDER_TRANSPARENT)
-    warped = cv2.warpPerspective(warped, transformation_matrix, (1088, 558))
+    warped = cv2.warpPerspective(warped, transformation_matrix, (h, w))
 
     return warped
 
-
+# pha tron khong trong suot
 def blend_non_transparent(face_img, overlay_img):
     # Let's find a mask covering all the non-black (foreground) pixels
-    # NB: We need to do this on grayscale version of the image
     gray_overlay = cv2.cvtColor(overlay_img, cv2.COLOR_BGR2GRAY)
     overlay_mask = cv2.threshold(gray_overlay, 1, 255, cv2.THRESH_BINARY)[1]
 
@@ -82,7 +80,6 @@ def blend_non_transparent(face_img, overlay_img):
     face_part = (face_img * (1 / 255.0)) * (background_mask * (1 / 255.0))
     overlay_part = (overlay_img * (1 / 255.0)) * (overlay_mask * (1 / 255.0))
 
-    # And finally just add them together, and rescale it back to an 8bit integer image
     return np.uint8(cv2.addWeighted(face_part, 255.0, overlay_part, 255.0, 0.0))
 
 
@@ -104,16 +101,15 @@ def crop_minAreaRect(src, rect):
     return out
 
 
-def resize_to_square(image, goal_dimension=28, border=2):
-    height, width = image.shape[0], image.shape[1]
-    smol = max(height, width)
+def resize_to_square(img, goal_dimension=28, border=2):
+    h, w = img.shape[0], img.shape[1]
 
-    proportion = goal_dimension / smol
+    ratio = goal_dimension / max(h, w)
 
-    BLACK = [0, 0, 0]
-    constant = cv2.copyMakeBorder(image, border, border, border, border, cv2.BORDER_CONSTANT, value=BLACK)
+    color = [0, 0, 0]
+    constant = cv2.copyMakeBorder(img, border, border, border, border, cv2.BORDER_CONSTANT, value=color)
     background = np.zeros((goal_dimension, goal_dimension), dtype=np.int)
-    resized = cv2.resize(constant, (int(round(width * proportion)), int(round(height * proportion))),
+    resized = cv2.resize(constant, (int(round(w * ratio)), int(round(h * ratio))),
                          interpolation=cv2.INTER_AREA)
 
     x_offset = (goal_dimension - resized.shape[1]) // 2

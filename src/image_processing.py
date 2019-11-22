@@ -3,8 +3,10 @@ import numpy as np
 from tool import crop_from_corners, resize_to_square, perspective_transform, blend_non_transparent
 from Sudoku import Sudoku
 
-img = cv2.imread('../images/5.png')
-
+img = cv2.imread('../images/3.PNG')
+# img = cv2.imread('../images/8.png')
+w, h = img.shape[:2]
+# print(img.shape)
 
 
 def find_sudoku(img, draw_contours=False, test=False):
@@ -20,10 +22,9 @@ def find_sudoku(img, draw_contours=False, test=False):
     contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # Extracting the image of what we think might be a sudoku:
-    topbottom_edge = (0, img.shape[0] - 1)
+    topbot_edge = (0, img.shape[0] - 1)
     leftright_edge = (0, img.shape[1] - 1)
 
-    # NOTE in my webcam contours[0] is always the whole image, so i just ignore it
     if len(contours) > 1:
         conts = sorted(contours, key=cv2.contourArea, reverse=True)
 
@@ -37,15 +38,16 @@ def find_sudoku(img, draw_contours=False, test=False):
             if len(cnt) > 3:
                 # Gets the 4 corners of the object (assume it's a square)
                 top_left     = min(cnt, key=lambda x: x[0, 0] + x[0, 1])
-                bottom_right = max(cnt, key=lambda x: x[0, 0] + x[0, 1])
+                bot_right = max(cnt, key=lambda x: x[0, 0] + x[0, 1])
                 top_right    = max(cnt, key=lambda x: x[0, 0] - x[0, 1])
-                bottom_left  = min(cnt, key=lambda x: x[0, 0] - x[0, 1])
-                corners = (top_left, top_right, bottom_left, bottom_right)
+                bot_left  = min(cnt, key=lambda x: x[0, 0] - x[0, 1])
+
+                corners = (top_left, top_right, bot_left, bot_right)
 
                 # Sometimes it finds 'objects' which are just parts of the screen
                 badobj = False
                 for corner in corners:
-                    if corner[0][0] in leftright_edge or corner[0][1] in topbottom_edge:
+                    if corner[0][0] in leftright_edge or corner[0][1] in topbot_edge:
                         badobj = True
 
                 if badobj is True:
@@ -53,11 +55,11 @@ def find_sudoku(img, draw_contours=False, test=False):
 
                 # Test
                 if test:
-                    cv2.drawContours(img, [cnt], 0, (0, 255, 0), 2)
+                    # cv2.drawContours(img, [cnt], 0, (0, 255, 0), 2)
                     cv2.circle(img, (top_left[0][0], top_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
                     cv2.circle(img, (top_right[0][0], top_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
-                    cv2.circle(img, (bottom_left[0][0], bottom_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
-                    cv2.circle(img, (bottom_right[0][0], bottom_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
+                    cv2.circle(img, (bot_left[0][0], bot_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
+                    cv2.circle(img, (bot_right[0][0], bot_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
 
             else:
 
@@ -80,7 +82,6 @@ def find_sudoku(img, draw_contours=False, test=False):
 
 
 def build_sudoku(img, test=False):
-    # Different preprocessings
     # can dilate/open if numbers are small or blur if there's noise
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # gray = cv2.dilate(gray, np.ones((2, 2)))
@@ -96,7 +97,6 @@ def build_sudoku(img, test=False):
     # # Sudoku object that will contain all the information
     sudoku = Sudoku.instance()
     k = 0
-    sudoku_border = 4
     border = 4
     x = w/9
     y = h/9
@@ -108,13 +108,13 @@ def build_sudoku(img, test=False):
             right = int(round(x * (j + 1) - border))
             bot = int(round(y * (i + 1) - border))
             if i == 0:
-                top += sudoku_border
+                top += border
             if i == 8:
-                bot -= sudoku_border
+                bot -= border
             if j == 0:
-                left += sudoku_border
+                left += border
             if j == 8:
-                right -= sudoku_border
+                right -= border
 
             point = [
                 [[left, top]],
@@ -148,7 +148,7 @@ def build_sudoku(img, test=False):
 
                 # minarea is an arbitrary size that the number must be to be considered valid
                 # NOTE change it if it detects noise/doesn't detect numbers (0.04)
-                minarea = x * y * 0.06
+                minarea = x * y * 0.04
                 if cv2.contourArea(cnt) > minarea:
                     # Crop out the number
 
@@ -163,18 +163,18 @@ def build_sudoku(img, test=False):
                     number_image = square[miny:maxy, minx:maxx]
 
                     if number_image is None or number_image.shape[0] < 4 or number_image.shape[1] < 4:
-                        # If there's not a number in there
-                        sudoku.update_case(None, (i, j), physical_position)
+                        sudoku.update_block(None, (i, j), physical_position)
                     else:
                         # If we get a valid number image:
                         # Resize it to 28x28 for neural network purposes
                         final = resize_to_square(number_image)
-                        # Send the data to the Sudoku object
-                        sudoku.update_case(final, (i, j), physical_position)
+                        sudoku.update_block(final, (i, j), physical_position)
+                        k = k + 1
                 else:
-                    sudoku.update_case(None, (i, j), physical_position)
+                    sudoku.update_block(None, (i, j), physical_position)
             else:
-                sudoku.update_case(None, (i, j), physical_position)
+                sudoku.update_block(None, (i, j), physical_position)
+        # print(k) ## print number in the sudoku
     return sudoku
 
 
@@ -190,12 +190,11 @@ if corners is not None:
     transfor_matrix = np.linalg.pinv(transfor_matrix)
     sudoku = build_sudoku(img_crop, test=False)
     sudoku.guess_sudoku(confidence_threshold=0)
-    sudoku.solve(img_crop, approximate=0.95)
-    # cv2.imshow('img_crop', img_crop)
-    img_sudoku_final = perspective_transform(img_crop, transfor_matrix, original_shape)
+    sudoku.solve(img_crop, approximate=0.90)
+
+    img_sudoku_final = perspective_transform(h, w, img_crop, transfor_matrix, original_shape)
     img_final = blend_non_transparent(img, img_sudoku_final)
     cv2.imshow('crop2', img_final)
 
-# cv2.imshow('img', img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
