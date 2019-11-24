@@ -1,8 +1,4 @@
-
 from keras.models import load_model, model_from_json
-import numpy as np
-import json
-import cv2
 
 from tool import Singleton
 

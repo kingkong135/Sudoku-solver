@@ -90,7 +90,9 @@ def display(values):
     for r in rows:
         print(''.join(values[r + c].center(width) + ('|' if c in '36' else '')
                       for c in cols))
-        if r in 'CF': print(line)
+        if r in 'CF':
+            print(line)
+    print()
 
 
 
@@ -118,7 +120,7 @@ def some(seq):
 def result(grids):
     values = solve(grids)
     if not values:
-        print('cannot solve')
+        # print('cannot solve')
         return False
     else:
         display(values)

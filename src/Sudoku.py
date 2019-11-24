@@ -1,12 +1,10 @@
-from numpy_ringbuffer import RingBuffer
 from fuzzywuzzy import process
 import numpy as np
-import cv2
+
 
 from tool import Singleton
-from neural_network import NeuralNetwork
 import sudoku_solving
-
+from Block import Block
 
 @Singleton
 class Sudoku:
@@ -44,14 +42,6 @@ class Sudoku:
                         if (i, j) not in ignore:
                             block.write(sudoku_image, number)
 
-    # For testing
-    def write_test(self, sudoku_image):
-        for i in range(9):
-            for j in range(9):
-                block = self.puzzle[i, j]
-                if block.number != 0:
-                    block.write(sudoku_image, str(block.number))
-
     def get_existing_numbers(self):
         existing_numbers = []
         for i in range(9):
@@ -63,7 +53,6 @@ class Sudoku:
         return existing_numbers
 
     def as_string(self):
-        'Turns the numbers of the sudoku into a string to be read by algorithm'
         string = ''
         array = np.ravel(self.puzzle)
         for guy in array:
@@ -72,7 +61,6 @@ class Sudoku:
         return string
 
     def solve_basic(self):
-        'Simply reads the numbers and finds a solution. Printed numbers will be less consistent.'
         string = self.as_string()
         if string in self.already_solved.keys():
             return self.already_solved[string]
@@ -88,11 +76,12 @@ class Sudoku:
             return self.already_solved[string], self.already_solved_numbers[string]
         else:
             # We save the attempts that we already did but were unsuccesful
-            sudoku_solving.result(string)
             if string in self.already_solved_false:
                 solved = False
             else:
                 solved = sudoku_solving.solve(string)
+                # Print answer
+                sudoku_solving.result(string)
 
             # If the sudoku is unsolvable but very similar to one we already did
             # we assume it's the same one but we couldn't quite catch some numbers
@@ -136,77 +125,3 @@ class Sudoku:
     def solve(self, img_cropped_sudoku, approximate=False):
         solution, existing_numbers = self.solve_approximate(approximate)
         self.write_solution(img_cropped_sudoku, solution, ignore=existing_numbers)
-
-
-class Block:
-    def __init__(self):
-        self.img = None
-        self.number = 0
-
-        self.prev_guesses = RingBuffer(capacity=5, dtype=(float, (10)))
-
-        self.fontsize = 0
-        self.block_pos = (0, 0)
-        self.physical_pos = (0, 0)
-
-        self.n = 0
-
-        # Guesses the number every self.maxtimer frames (10?), to not overuse resources
-        self.maxtimer = 10
-        self.timer = self.maxtimer - 1
-
-    def update(self, img, block_pos, physical_pos):
-        self.img = img
-        self.block_pos = block_pos
-
-        top, right, bot, left = physical_pos
-        average_dimension = (bot - top + right - left) / 2
-
-        # NOTE edit this for better fontsize, positioning of the number
-        self.fontsize = average_dimension / 40
-        self.n = average_dimension / 4
-
-        # NOTE edit this for better positioning of the number
-        self.physical_pos = (physical_pos[3] + 1 + int(self.fontsize * self.n),
-                             physical_pos[2] - int(self.fontsize * self.n))
-
-    def guess_number(self, kind=2, confidence_threshold=0):
-        '''
-        Uses neural networks to guess the number in the image.
-        kind=1 is more primitive, just guesses the image (less reliable)
-        kind=2 consumes more memory and CPU but is more reliable (averages out a bunch of guesses)
-        '''
-        if kind == 1:
-            if self.img is None:
-                number = 0
-            else:
-                guy = NeuralNetwork.instance()
-                prediction = guy.guess(self.img)
-                number = np.argmax(prediction, axis=0)
-
-            self.number = number
-
-        if kind == 2:
-            # Guesses every self.maxtimer frames
-            self.timer += 1
-            if self.timer >= self.maxtimer:
-                self.timer = 0
-
-                if self.img is None:
-                    self.prev_guesses.appendleft(np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
-                else:
-                    guy = NeuralNetwork.instance()
-                    prediction = guy.guess(self.img)
-                    self.prev_guesses.appendleft(np.array(prediction))
-
-            m = np.mean(self.prev_guesses, axis=0)
-            number = np.argmax(m, axis=0)
-            if m[number] > confidence_threshold:
-                self.number = number
-
-        return self.number
-
-    def write(self, sudoku_image, text):
-        font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(sudoku_image, text, tuple(self.physical_pos),
-                    font, self.fontsize, (0, 0, 255), 1, cv2.LINE_AA)

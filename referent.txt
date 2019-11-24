@@ -25,3 +25,10 @@ slove line 138 mean:
         # case_position is, for example, (8,8) for the case at the bottom right
         # physical_position is the pixel at the center of the case, so we know where to write
 
+https://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=minarearect
+https://docs.opencv.org/2.4/modules/imgproc/doc/miscellaneous_transformations.html?highlight=adaptivethreshold
+cv2.adaptiveThreshold(src, maxValue, adaptiveMethod, thresholdType, blockSize, C[, dst]) → dst
+
+crop_from_corners: bao gồm các bước:  Điều chỉnh góc, resize nếu muốn làm hình vuông, lấy ra am trận bối cảnh, crop ra các ô vuông
+perspective_transform: chuyen doi ngu canh
+blend_non_transparent: pha tron ko trong suot, buoc cuoi cung

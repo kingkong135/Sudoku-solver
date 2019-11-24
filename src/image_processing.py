@@ -3,10 +3,9 @@ import numpy as np
 from tool import crop_from_corners, resize_to_square, perspective_transform, blend_non_transparent
 from Sudoku import Sudoku
 
-img = cv2.imread('../images/3.PNG')
-# img = cv2.imread('../images/8.png')
-w, h = img.shape[:2]
-# print(img.shape)
+# img = cv2.imread('../images/3.PNG')
+# img = cv2.imread('../images/1.png')
+# w, h = img.shape[:2]
 
 
 def find_sudoku(img, draw_contours=False, test=False):
@@ -17,6 +16,9 @@ def find_sudoku(img, draw_contours=False, test=False):
     kernel = np.ones((3, 3), np.uint8)
     edges = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel)
     edges = cv2.adaptiveThreshold(edges, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 19, 2)
+    # outdir = '../images/Threshold.png'
+    # cv2.imshow("1", edges)
+    # cv2.imwrite(outdir, edges)
 
     # Get contours:
     contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -55,12 +57,14 @@ def find_sudoku(img, draw_contours=False, test=False):
 
                 # Test
                 if test:
-                    # cv2.drawContours(img, [cnt], 0, (0, 255, 0), 2)
+                    cv2.drawContours(img, [cnt], 0, (0, 255, 0), 2)
                     cv2.circle(img, (top_left[0][0], top_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
                     cv2.circle(img, (top_right[0][0], top_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
                     cv2.circle(img, (bot_left[0][0], bot_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
                     cv2.circle(img, (bot_right[0][0], bot_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
-
+                    outdir = '../images/draws_contours.png'
+                    cv2.imwrite(outdir, img)
+                    cv2.imshow("draws_contours", img)
             else:
 
                 return edges, None
@@ -88,9 +92,6 @@ def build_sudoku(img, test=False):
     # gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, np.ones((1,5),np.uint8))
     # gray = cv2.GaussianBlur(gray,(5,5),0)
     edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 7, 7)
-
-    if test:
-        cv2.imshow('sudoku', edges)
 
     h, w = img.shape[:2]
 
@@ -177,24 +178,33 @@ def build_sudoku(img, test=False):
         # print(k) ## print number in the sudoku
     return sudoku
 
+def image_processing(img):
+    img_ans = img
+    w, h = img.shape[:2]
+    edges, corners = find_sudoku(img, False, False)
+    if corners is not None:
+        # We crop out the sudoku and get the info needed to paste it back (matrix)
+        img_crop, transformation = crop_from_corners(img, corners)
+        cv2.imshow('crop', img_crop)
+        # cv2.imwrite('../images/crop.png', img_crop)
 
-edges, corners = find_sudoku(img, False, False)
-if corners is not None:
-    # We crop out the sudoku and get the info needed to paste it back (matrix)
-    img_crop, transformation = crop_from_corners(img, corners)
-    cv2.imshow('crop', img_crop)
-    transfor_matrix = transformation['matrix']
-    original_shape = transformation['original_shape']
+        transfor_matrix = transformation['matrix']
+        original_shape = transformation['original_shape']
 
-    # inverse the matrix for we can thuc hien chuyen doi sau
-    transfor_matrix = np.linalg.pinv(transfor_matrix)
-    sudoku = build_sudoku(img_crop, test=False)
-    sudoku.guess_sudoku(confidence_threshold=0)
-    sudoku.solve(img_crop, approximate=0.90)
+        # inverse the matrix for we can thuc hien chuyen doi sau
+        transfor_matrix = np.linalg.pinv(transfor_matrix)
+        sudoku = build_sudoku(img_crop, test=False)
+        sudoku.guess_sudoku(confidence_threshold=0)
+        sudoku.solve(img_crop, approximate=0.90)
 
-    img_sudoku_final = perspective_transform(h, w, img_crop, transfor_matrix, original_shape)
-    img_final = blend_non_transparent(img, img_sudoku_final)
-    cv2.imshow('crop2', img_final)
+        img_sudoku_final = perspective_transform(h, w, img_crop, transfor_matrix, original_shape)
+        # cv2.imshow("img_sudoku_final", img_sudoku_final)
+        # cv2.imwrite('../images/perspective_transform.png', img_sudoku_final)
 
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+        img_ans = blend_non_transparent(img, img_sudoku_final)
+        # cv2.imshow('crop2', img_ans)
+        # cv2.imwrite('../images/blend_non_transparent.png', img_final)
+
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    return img_ans
