@@ -3,7 +3,7 @@ import numpy as np
 from tool import crop_from_corners, resize_to_square, perspective_transform, blend_non_transparent
 from Sudoku import Sudoku
 
-# img = cv2.imread('../images/3.PNG')
+
 # img = cv2.imread('../images/1.png')
 # w, h = img.shape[:2]
 
