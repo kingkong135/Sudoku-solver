@@ -7,7 +7,7 @@ from tool import Singleton
 class NeuralNetwork:
     def __init__(self):
         # Loads the model into memory
-        with open('258epochs_model_7.json','r') as f:
+        with open('258epochs_model_7.json', 'r') as f:
             model_json = f.read()
 
         self.model = model_from_json(model_json)

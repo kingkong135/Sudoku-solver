@@ -39,10 +39,10 @@ def find_sudoku(img, draw_contours=False, test=False):
 
             if len(cnt) > 3:
                 # Gets the 4 corners of the object (assume it's a square)
-                top_left     = min(cnt, key=lambda x: x[0, 0] + x[0, 1])
+                top_left = min(cnt, key=lambda x: x[0, 0] + x[0, 1])
                 bot_right = max(cnt, key=lambda x: x[0, 0] + x[0, 1])
-                top_right    = max(cnt, key=lambda x: x[0, 0] - x[0, 1])
-                bot_left  = min(cnt, key=lambda x: x[0, 0] - x[0, 1])
+                top_right = max(cnt, key=lambda x: x[0, 0] - x[0, 1])
+                bot_left = min(cnt, key=lambda x: x[0, 0] - x[0, 1])
 
                 corners = (top_left, top_right, bot_left, bot_right)
 
@@ -62,8 +62,8 @@ def find_sudoku(img, draw_contours=False, test=False):
                     cv2.circle(img, (top_right[0][0], top_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
                     cv2.circle(img, (bot_left[0][0], bot_left[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
                     cv2.circle(img, (bot_right[0][0], bot_right[0][1]), 5, 0, thickness=5, lineType=8, shift=0)
-                    outdir = '../images/draws_contours.png'
-                    cv2.imwrite(outdir, img)
+                    # outdir = '../images/draws_contours.png'
+                    # cv2.imwrite(outdir, img)
                     cv2.imshow("draws_contours", img)
             else:
 
@@ -99,8 +99,8 @@ def build_sudoku(img, test=False):
     sudoku = Sudoku.instance()
     k = 0
     border = 4
-    x = w/9
-    y = h/9
+    x = w / 9
+    y = h / 9
     ans = []
     for i in range(9):
         for j in range(9):
@@ -127,7 +127,7 @@ def build_sudoku(img, test=False):
             square, _ = crop_from_corners(edges, point)
             # cv2.imshow('test ' + str((i+1)*(j+1)), square)
             if test is True:
-                if i == 0 and j == 3:
+                if i == 0 and j == 0:
                     cv2.imshow('square', square)
                 if i == 1 and j == 0:
                     cv2.imshow('ss', square)
@@ -139,8 +139,6 @@ def build_sudoku(img, test=False):
             contours, _ = cv2.findContours(fat_square, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
             physical_position = [top, right, bot, left]
-
-
 
             if contours:
                 conts = sorted(contours, key=cv2.contourArea, reverse=True)
@@ -178,27 +176,29 @@ def build_sudoku(img, test=False):
         # print(k) ## print number in the sudoku
     return sudoku
 
-def image_processing(img):
+
+def image_processing(img, test=False):
     img_ans = img
     w, h = img.shape[:2]
-    edges, corners = find_sudoku(img, False, False)
+    edges, corners = find_sudoku(img, False, test)
     if corners is not None:
         # We crop out the sudoku and get the info needed to paste it back (matrix)
         img_crop, transformation = crop_from_corners(img, corners)
-        cv2.imshow('crop', img_crop)
-        # cv2.imwrite('../images/crop.png', img_crop)
+        if test:
+            cv2.imshow('crop', img_crop)
+            # cv2.imwrite('../images/crop.png', img_crop)
 
         transfor_matrix = transformation['matrix']
         original_shape = transformation['original_shape']
 
         # inverse the matrix for we can thuc hien chuyen doi sau
         transfor_matrix = np.linalg.pinv(transfor_matrix)
-        sudoku = build_sudoku(img_crop, test=False)
+        sudoku = build_sudoku(img_crop, test)
         sudoku.guess_sudoku(confidence_threshold=0)
         sudoku.solve(img_crop, approximate=0.90)
 
         img_sudoku_final = perspective_transform(h, w, img_crop, transfor_matrix, original_shape)
-        # cv2.imshow("img_sudoku_final", img_sudoku_final)
+        cv2.imshow("img_sudoku_final", img_sudoku_final)
         # cv2.imwrite('../images/perspective_transform.png', img_sudoku_final)
 
         img_ans = blend_non_transparent(img, img_sudoku_final)

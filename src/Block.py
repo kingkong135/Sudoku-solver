@@ -68,7 +68,7 @@ class Block:
             number = np.argmax(m, axis=0)
             if m[number] > confidence_threshold:
                 self.number = number
-
+        print(self.number)
         return self.number
 
     def write(self, sudoku_image, text):

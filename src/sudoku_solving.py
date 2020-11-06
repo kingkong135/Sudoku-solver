@@ -95,7 +95,6 @@ def display(values):
     print()
 
 
-
 def solve(grid): return search(parse_grid(grid))
 
 
@@ -117,6 +116,7 @@ def some(seq):
         if e: return e
     return False
 
+
 def result(grids):
     values = solve(grids)
     if not values:
@@ -124,7 +124,6 @@ def result(grids):
         return False
     else:
         display(values)
-
 
 # grid2  = '4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......'
 # result(grid2)

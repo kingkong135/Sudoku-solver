@@ -71,6 +71,7 @@ class Sudoku:
     def solve_approximate(self, approximate=False):
         'If it finds a sudoku similar to one it has already done, uses its solution'
         string = self.as_string()
+        print('string', string)
         if string in self.already_solved.keys():
 
             return self.already_solved[string], self.already_solved_numbers[string]
@@ -80,6 +81,7 @@ class Sudoku:
                 solved = False
             else:
                 solved = sudoku_solving.solve(string)
+                # print(solved)
                 # Print answer
                 sudoku_solving.result(string)
 
